@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'riwayat_page.dart';
 import 'profil_page.dart';
+import 'form_page.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:project_akhir_sedesa/service/jwt_service.dart';
+import 'package:project_akhir_sedesa/config.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -12,6 +17,10 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _currentIndex = 1;
   final TextEditingController _searchController = TextEditingController();
+  int _totalSurat = 0;
+  int _diprosesSurat = 0;
+  int _selesaiSurat = 0;
+  bool _isLoadingSurat = true;
 
   final List<Map<String, dynamic>> suratItems = [
     {
@@ -32,18 +41,6 @@ class _HomePageState extends State<HomePage> {
       'icon': Icons.business_center,
       'color': const Color(0xFF4CAF50),
     },
-    {
-      'title': 'Surat Keterangan Domisili',
-      'description': 'Surat keterangan tempat tinggal',
-      'icon': Icons.home,
-      'color': const Color(0xFF9C27B0),
-    },
-    {
-      'title': 'Surat Pengantar',
-      'description': 'Surat pengantar untuk berbagai keperluan',
-      'icon': Icons.send,
-      'color': const Color(0xFFFF9800),
-    },
   ];
 
   List<Map<String, dynamic>> get filteredSuratItems {
@@ -52,6 +49,40 @@ class _HomePageState extends State<HomePage> {
     }
     return suratItems.where((item) =>
         item['title'].toLowerCase().contains(_searchController.text.toLowerCase())).toList();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchSuratCounts();
+  }
+
+  Future<void> _fetchSuratCounts() async {
+    setState(() {
+      _isLoadingSurat = true;
+    });
+    try {
+      // Replace with your actual API endpoint and token logic
+      final token = await getToken(); // You may need to import your jwt_service.dart
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/surat/'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        _totalSurat = data.length;
+        _diprosesSurat = data.where((s) => s['status'] == 'pending').length;
+        _selesaiSurat = data.where((s) => s['status'] == 'selesai').length;
+      }
+    } catch (e) {
+      // handle error, optionally show a snackbar
+    }
+    setState(() {
+      _isLoadingSurat = false;
+    });
   }
 
   @override
@@ -297,7 +328,7 @@ class _HomePageState extends State<HomePage> {
                         child: _buildStatCard(
                           icon: Icons.description,
                           title: 'Total Surat',
-                          value: '156',
+                          value: _isLoadingSurat ? '-' : '$_totalSurat',
                           color: const Color(0xFF2196F3),
                         ),
                       ),
@@ -306,7 +337,7 @@ class _HomePageState extends State<HomePage> {
                         child: _buildStatCard(
                           icon: Icons.pending_actions,
                           title: 'Diproses',
-                          value: '12',
+                          value: _isLoadingSurat ? '-' : '$_diprosesSurat',
                           color: const Color(0xFFFF9800),
                         ),
                       ),
@@ -315,7 +346,7 @@ class _HomePageState extends State<HomePage> {
                         child: _buildStatCard(
                           icon: Icons.check_circle,
                           title: 'Selesai',
-                          value: '144',
+                          value: _isLoadingSurat ? '-' : '$_selesaiSurat',
                           color: const Color(0xFF4CAF50),
                         ),
                       ),
@@ -414,11 +445,11 @@ class _HomePageState extends State<HomePage> {
   Widget _buildSuratCard(Map<String, dynamic> item) {
     return GestureDetector(
       onTap: () {
-        // Handle navigation to detail page
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Membuka ${item['title']}'),
-            backgroundColor: const Color(0xFF2E7D32),
+        // Navigate to SuratPage and pass the jenis/type
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => FormPage(jenis: item['title']),
           ),
         );
       },

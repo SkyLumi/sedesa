@@ -5,6 +5,7 @@ import 'package:project_akhir_sedesa/config.dart';
 import 'register_page.dart';
 import 'user/home_page.dart';
 import 'admin/home_page.dart';
+import 'package:project_akhir_sedesa/service/jwt_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -28,6 +29,8 @@ class _LoginPageState extends State<LoginPage> {
   if (response.statusCode == 200) {
     final data = jsonDecode(response.body);
     final role = data['role']; // pastikan backend return 'role'
+    final token = data['token'];
+    ngasiToken(token);
 
     if (role == 'admin') {
       if (!context.mounted) return;

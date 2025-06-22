@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:project_akhir_sedesa/service/map_service.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -12,6 +15,47 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
   bool _isLoading = false;
+
+  // New fields
+  final TextEditingController _nikController = TextEditingController();
+  final TextEditingController _namaController = TextEditingController();
+  final TextEditingController _tempatLahirController = TextEditingController();
+  DateTime? _tanggalLahir;
+  int? _jenisKelamin;
+  int? _agama;
+  int? _kewarganegaraan;
+  int? _statusPerkawinan;
+  final TextEditingController _pekerjaanController = TextEditingController();
+  final TextEditingController _alamatController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _secretKeyController = TextEditingController();
+  double? _lat;
+  double? _lng;
+
+  final List<Map<String, dynamic>> _jenisKelaminOptions = [
+    {'id': 1, 'nama': 'Laki - Laki'},
+    {'id': 2, 'nama': 'Wanita'},
+  ];
+  final List<Map<String, dynamic>> _agamaOptions = [
+    {'id': 1, 'nama': 'Islam'},
+    {'id': 2, 'nama': 'Kristen'},
+    {'id': 3, 'nama': 'Katolik'},
+    {'id': 4, 'nama': 'Hindu'},
+    {'id': 5, 'nama': 'Buddha'},
+    {'id': 6, 'nama': 'Khonguchu'},
+  ];
+  final List<Map<String, dynamic>> _kewarganegaraanOptions = [
+    {'id': 1, 'nama': 'Indonesia'},
+  ];
+  final List<Map<String, dynamic>> _statusPerkawinanOptions = [
+    {'id': 1, 'nama': 'Menikah'},
+    {'id': 2, 'nama': 'Belum Menikah'},
+    {'id': 3, 'nama': 'Cerai'},
+    {'id': 4, 'nama': 'Cerai Mati'},
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -120,10 +164,257 @@ class _RegisterPageState extends State<RegisterPage> {
                       ),
                       const SizedBox(height: 32),
 
+                      // NIK Field
+                      _buildInputField(
+                        label: 'NIK',
+                        icon: Icons.credit_card,
+                        controller: _nikController,
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'NIK tidak boleh kosong';
+                          }
+                          if (value.length != 16) {
+                            return 'NIK harus 16 digit';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Nama Field
+                      _buildInputField(
+                        label: 'Nama Lengkap',
+                        icon: Icons.person,
+                        controller: _namaController,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Nama tidak boleh kosong';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Tempat Lahir Field
+                      _buildInputField(
+                        label: 'Tempat Lahir',
+                        icon: Icons.location_city,
+                        controller: _tempatLahirController,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Tempat lahir tidak boleh kosong';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Tanggal Lahir Field
+                      Text(
+                        'Tanggal Lahir',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF2E7D32),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      InkWell(
+                        onTap: () async {
+                          final picked = await showDatePicker(
+                            context: context,
+                            initialDate: DateTime(2000, 1, 1),
+                            firstDate: DateTime(1900),
+                            lastDate: DateTime.now(),
+                          );
+                          if (picked != null) {
+                            setState(() {
+                              _tanggalLahir = picked;
+                            });
+                          }
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey),
+                          ),
+                          child: Text(
+                            _tanggalLahir == null
+                                ? 'Pilih tanggal lahir'
+                                : '${_tanggalLahir!.day.toString().padLeft(2, '0')}-${_tanggalLahir!.month.toString().padLeft(2, '0')}-${_tanggalLahir!.year}',
+                            style: TextStyle(
+                              color: _tanggalLahir == null ? Colors.grey : Colors.black,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Jenis Kelamin Dropdown
+                      Text(
+                        'Jenis Kelamin',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF2E7D32),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<int>(
+                        value: _jenisKelamin,
+                        items: _jenisKelaminOptions
+                            .map((jk) => DropdownMenuItem<int>(
+                                  value: jk['id'],
+                                  child: Text(jk['nama']),
+                                ))
+                            .toList(),
+                        onChanged: (val) => setState(() => _jenisKelamin = val),
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Colors.grey),
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        ),
+                        validator: (value) => value == null ? 'Pilih jenis kelamin' : null,
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Pekerjaan Field
+                      _buildInputField(
+                        label: 'Pekerjaan',
+                        icon: Icons.work,
+                        controller: _pekerjaanController,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Pekerjaan tidak boleh kosong';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Alamat Field
+                      _buildInputField(
+                        label: 'Alamat',
+                        icon: Icons.home,
+                        controller: _alamatController,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Alamat tidak boleh kosong';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Agama Dropdown
+                      Text(
+                        'Agama',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF2E7D32),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<int>(
+                        value: _agama,
+                        items: _agamaOptions
+                            .map((ag) => DropdownMenuItem<int>(
+                                  value: ag['id'],
+                                  child: Text(ag['nama']),
+                                ))
+                            .toList(),
+                        onChanged: (val) => setState(() => _agama = val),
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Colors.grey),
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        ),
+                        validator: (value) => value == null ? 'Pilih agama' : null,
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Kewarganegaraan Dropdown
+                      Text(
+                        'Kewarganegaraan',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF2E7D32),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<int>(
+                        value: _kewarganegaraan,
+                        items: _kewarganegaraanOptions
+                            .map((kw) => DropdownMenuItem<int>(
+                                  value: kw['id'],
+                                  child: Text(kw['nama']),
+                                ))
+                            .toList(),
+                        onChanged: (val) => setState(() => _kewarganegaraan = val),
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Colors.grey),
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        ),
+                        validator: (value) => value == null ? 'Pilih kewarganegaraan' : null,
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Status Perkawinan Dropdown
+                      Text(
+                        'Status Perkawinan',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xFF2E7D32),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<int>(
+                        value: _statusPerkawinan,
+                        items: _statusPerkawinanOptions
+                            .map((sp) => DropdownMenuItem<int>(
+                                  value: sp['id'],
+                                  child: Text(sp['nama']),
+                                ))
+                            .toList(),
+                        onChanged: (val) => setState(() => _statusPerkawinan = val),
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Colors.grey),
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                        ),
+                        validator: (value) => value == null ? 'Pilih status perkawinan' : null,
+                      ),
+                      const SizedBox(height: 20),
+
                       // Username Field
                       _buildInputField(
                         label: 'Username',
                         icon: Icons.person_outline,
+                        controller: _usernameController,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'Username tidak boleh kosong';
@@ -140,6 +431,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       _buildInputField(
                         label: 'No. Handphone',
                         icon: Icons.phone_outlined,
+                        controller: _phoneController,
                         keyboardType: TextInputType.phone,
                         validator: (value) {
                           if (value == null || value.isEmpty) {
@@ -157,6 +449,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       _buildPasswordField(
                         label: 'Password',
                         isVisible: _isPasswordVisible,
+                        controller: _passwordController,
                         onToggleVisibility: () {
                           setState(() {
                             _isPasswordVisible = !_isPasswordVisible;
@@ -178,6 +471,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       _buildPasswordField(
                         label: 'Konfirmasi Password',
                         isVisible: _isConfirmPasswordVisible,
+                        controller: _confirmPasswordController,
                         onToggleVisibility: () {
                           setState(() {
                             _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
@@ -187,10 +481,75 @@ class _RegisterPageState extends State<RegisterPage> {
                           if (value == null || value.isEmpty) {
                             return 'Konfirmasi password tidak boleh kosong';
                           }
-                          // Note: In real implementation, you should compare with actual password
+                          if (value != _passwordController.text) {
+                            return 'Konfirmasi password tidak cocok';
+                          }
                           return null;
                         },
                       ),
+                      const SizedBox(height: 20),
+
+                      // Secret Key Field
+                      _buildInputField(
+                        label: 'Secret Key',
+                        icon: Icons.vpn_key,
+                        controller: _secretKeyController,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Secret key tidak boleh kosong';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Location Picker
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Lokasi', style: TextStyle(fontWeight: FontWeight.w500)),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(_lat != null && _lng != null
+                                      ? 'Lat: $_lat, Lng: $_lng'
+                                      : 'Belum dipilih'),
+                                ),
+                                ElevatedButton.icon(
+                                  icon: const Icon(Icons.map),
+                                  label: const Text('Pilih di Peta'),
+                                  onPressed: () async {
+                                    await showDialog(
+                                      context: context,
+                                      builder: (context) => Dialog(
+                                        insetPadding: const EdgeInsets.all(8),
+                                        child: SizedBox(
+                                          width: double.infinity,
+                                          height: MediaQuery.of(context).size.height * 0.7,
+                                          child: LocationPicker(
+                                            lat: _lat,
+                                            lng: _lng,
+                                            onLocationPicked: (lat, lng) {
+                                              setState(() {
+                                                _lat = lat;
+                                                _lng = lng;
+                                              });
+                                              Navigator.of(context).pop();
+                                            },
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+
                       const SizedBox(height: 32),
 
                       // Register Button
@@ -263,6 +622,7 @@ class _RegisterPageState extends State<RegisterPage> {
   Widget _buildInputField({
     required String label,
     required IconData icon,
+    TextEditingController? controller,
     TextInputType? keyboardType,
     String? Function(String?)? validator,
   }) {
@@ -279,6 +639,7 @@ class _RegisterPageState extends State<RegisterPage> {
         ),
         const SizedBox(height: 8),
         TextFormField(
+          controller: controller,
           keyboardType: keyboardType,
           validator: validator,
           decoration: InputDecoration(
@@ -307,6 +668,7 @@ class _RegisterPageState extends State<RegisterPage> {
   Widget _buildPasswordField({
     required String label,
     required bool isVisible,
+    required TextEditingController controller,
     required VoidCallback onToggleVisibility,
     String? Function(String?)? validator,
   }) {
@@ -323,6 +685,7 @@ class _RegisterPageState extends State<RegisterPage> {
         ),
         const SizedBox(height: 8),
         TextFormField(
+          controller: controller,
           obscureText: !isVisible,
           validator: validator,
           decoration: InputDecoration(
@@ -361,22 +724,48 @@ class _RegisterPageState extends State<RegisterPage> {
         _isLoading = true;
       });
 
-      // Simulasi proses register
-      await Future.delayed(const Duration(seconds: 2));
+      final Map<String, dynamic> payload = {
+        "nik": _nikController.text,
+        "password": _passwordController.text,
+        "nomor_telepon": _phoneController.text,
+        "secret_key": _secretKeyController.text,
+        "nama": _namaController.text,
+        "tempat_lahir": _tempatLahirController.text,
+        "tanggal_lahir": _tanggalLahir != null
+            ? "${_tanggalLahir!.year.toString().padLeft(4, '0')}-${_tanggalLahir!.month.toString().padLeft(2, '0')}-${_tanggalLahir!.day.toString().padLeft(2, '0')}"
+            : null,
+        "jenis_kelamin_id": _jenisKelamin,
+        "pekerjaan": _pekerjaanController.text,
+        "alamat": _alamatController.text,
+        "lat": _lat,
+        "lng": _lng,
+        "agama_id": _agama,
+        "kewarganegaraan_id": _kewarganegaraan,
+        "status_perkawinan_id": _statusPerkawinan,
+      };
+
+      final response = await http.post(
+        Uri.parse('YOUR_API_URL/auth/register'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(payload),
+      );
 
       setState(() {
         _isLoading = false;
       });
 
-      // Handle register logic here
-      // Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => HomePage()));
-      if(!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Registrasi berhasil!'),
-          backgroundColor: Color(0xFF2E7D32),
-        ),
-      );
+      if (response.statusCode == 200) {
+        // Success
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Registrasi berhasil!')),
+        );
+        // Navigate or reset form
+      } else {
+        // Error
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Registrasi gagal: ${response.body}')),
+        );
+      }
     }
   }
 }
