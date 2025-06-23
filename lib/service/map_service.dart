@@ -1,8 +1,11 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:geolocator/geolocator.dart';
 
 class LocationPicker extends StatelessWidget {
   final double? lat;
@@ -75,7 +78,7 @@ class LocationPicker extends StatelessWidget {
                               width: 40.0,
                               height: 40.0,
                               point: value,
-                              child: const Icon(Icons.location_on, color: Colors.red, size: 40),
+                              child: const Icon(Icons.location_on, color: Colors.red, size:40),
                             ),
                           ],
                         ),
@@ -86,7 +89,7 @@ class LocationPicker extends StatelessWidget {
                 Positioned(
                   top: 10,
                   left: 10,
-                  right: 60,
+                  right: 110,
                   child: Material(
                     elevation: 2,
                     borderRadius: BorderRadius.circular(8),
@@ -111,6 +114,43 @@ class LocationPicker extends StatelessWidget {
                         }
                       },
                     ),
+                  ),
+                ),
+                Positioned(
+                  top: 10,
+                  right: 60,
+                  child: IconButton(
+                    icon: const Icon(Icons.my_location, color: Colors.blue),
+                    tooltip: 'Gunakan Lokasi Saya',
+                    onPressed: () async {
+                      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+                      if (!serviceEnabled) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Location services are disabled.')),
+                        );
+                        return;
+                      }
+                      LocationPermission permission = await Geolocator.checkPermission();
+                      if (permission == LocationPermission.denied) {
+                        permission = await Geolocator.requestPermission();
+                        if (permission == LocationPermission.denied) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Location permissions are denied.')),
+                          );
+                          return;
+                        }
+                      }
+                      if (permission == LocationPermission.deniedForever) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Location permissions are permanently denied.')),
+                        );
+                        return;
+                      }
+                      final position = await Geolocator.getCurrentPosition();
+                      final newLatLng = LatLng(position.latitude, position.longitude);
+                      markerPosition.value = newLatLng;
+                      mapController.move(newLatLng, 15.0);
+                    },
                   ),
                 ),
                 Positioned(
@@ -151,7 +191,7 @@ class LocationPicker extends StatelessWidget {
         Row(
           children: [
             const Text(
-              'Pilih Lokasi yang Ingin diambil',
+              'Lokasi',
               style: TextStyle(fontWeight: FontWeight.w600),
             ),
             const Spacer(),
@@ -164,29 +204,68 @@ class LocationPicker extends StatelessWidget {
         ),
         SizedBox(
           height: 200,
-          child: FlutterMap(
-            options: MapOptions(
-              initialCenter: LatLng(lat ?? -8.169062, lng ?? 113.718067),
-              initialZoom: 15.0,
-              onTap: (tapPosition, point) {
-                onLocationPicked(point.latitude, point.longitude);
-              },
-            ),
+          child: Stack(
             children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              ),
-              if (lat != null && lng != null)
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      width: 40.0,
-                      height: 40.0,
-                      point: LatLng(lat!, lng!),
-                      child: const Icon(Icons.location_on, color: Colors.red, size: 40),
-                    ),
-                  ],
+              FlutterMap(
+                options: MapOptions(
+                  initialCenter: LatLng(lat ?? -8.169062, lng ?? 113.718067),
+                  initialZoom: 15.0,
+                  onTap: (tapPosition, point) {
+                    onLocationPicked(point.latitude, point.longitude);
+                  },
                 ),
+                children: [
+                  TileLayer(
+                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  ),
+                  if (lat != null && lng != null)
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          width: 40.0,
+                          height: 40.0,
+                          point: LatLng(lat!, lng!),
+                          child: const Icon(Icons.location_on, color: Colors.red, size: 40),
+                        ),
+                      ],
+                    ),
+                ],
+              ),
+              Positioned(
+                top: 10,
+                right: 10,
+                child: IconButton(
+                  icon: const Icon(Icons.my_location, color: Colors.blue),
+                  tooltip: 'Gunakan Lokasi Saya',
+                  onPressed: () async {
+                    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+                    if (!serviceEnabled) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Location services are disabled.')),
+                      );
+                      return;
+                    }
+                    LocationPermission permission = await Geolocator.checkPermission();
+                    if (permission == LocationPermission.denied) {
+                      permission = await Geolocator.requestPermission();
+                      if (permission == LocationPermission.denied) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Location permissions are denied.')),
+                        );
+                        return;
+                      }
+                    }
+                    if (permission == LocationPermission.deniedForever) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Location permissions are permanently denied.')),
+                      );
+                      return;
+                    }
+                    final position = await Geolocator.getCurrentPosition();
+                    onLocationPicked(position.latitude, position.longitude);
+                  },
+                ),
+              ),
             ],
           ),
         ),

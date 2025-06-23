@@ -1,6 +1,10 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:project_akhir_sedesa/config.dart';
 import 'package:project_akhir_sedesa/service/jwt_service.dart';
+import 'home_page.dart';
+import 'riwayat_page.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter/services.dart';
@@ -65,6 +69,7 @@ class _NIKDataPageState extends State<NIKDataPage> {
         _filteredNIKData = data;
       });
     }).catchError((error) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error loading data: $error'),
@@ -263,6 +268,65 @@ class _NIKDataPageState extends State<NIKDataPage> {
         backgroundColor: const Color(0xFF1565C0),
         child: const Icon(Icons.add, color: Colors.white),
       ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withValues(alpha: 0.2),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: BottomNavigationBar(
+          currentIndex: 2,
+          onTap: (index) {
+            if (index == 2) return;
+            if (index == 0) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const AdminHomePage()),
+              );
+            } else if (index == 1) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const RiwayatPage()),
+              );
+            } else if (index == 3) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Halaman Maps belum tersedia'),
+                  backgroundColor: Color(0xFF1565C0),
+                ),
+              );
+            }
+          },
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: Colors.white,
+          selectedItemColor: const Color(0xFF1565C0),
+          unselectedItemColor: Colors.grey,
+          elevation: 0,
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.dashboard),
+              label: 'Dashboard',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.pending_actions),
+              label: 'Riwayat',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.people),
+              label: 'NIK Data',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.location_on_rounded),
+              label: 'Maps',
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -322,7 +386,7 @@ class _NIKDataPageState extends State<NIKDataPage> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -331,8 +395,8 @@ class _NIKDataPageState extends State<NIKDataPage> {
       child: ExpansionTile(
         leading: CircleAvatar(
           backgroundColor: isActive
-              ? const Color(0xFF4CAF50).withOpacity(0.1)
-              : const Color(0xFFFF5722).withOpacity(0.1),
+              ? const Color(0xFF4CAF50).withValues(alpha: 0.1)
+              : const Color(0xFFFF5722).withValues(alpha: 0.1),
           child: Text(
             nama.isNotEmpty ? nama[0].toUpperCase() : '?',
             style: TextStyle(
@@ -606,6 +670,7 @@ class _NIKDataPageState extends State<NIKDataPage> {
                         );
 
                         if (response.statusCode == 201) {
+                          if (!mounted) return;
                           Navigator.pop(context);
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(

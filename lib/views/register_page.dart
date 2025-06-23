@@ -1,7 +1,10 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:project_akhir_sedesa/service/map_service.dart';
+import 'package:project_akhir_sedesa/config.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -745,7 +748,7 @@ class _RegisterPageState extends State<RegisterPage> {
       };
 
       final response = await http.post(
-        Uri.parse('YOUR_API_URL/auth/register'),
+        Uri.parse('$baseUrl/auth/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(payload),
       );

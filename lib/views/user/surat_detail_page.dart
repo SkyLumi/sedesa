@@ -4,6 +4,9 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:project_akhir_sedesa/config.dart';
 import 'package:project_akhir_sedesa/service/jwt_service.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:open_file/open_file.dart';
+import 'dart:io';
 
 class SuratDetailPage extends StatefulWidget {
   final SuratRiwayat surat;
@@ -18,7 +21,7 @@ class SuratDetailPage extends StatefulWidget {
 }
 
 class _SuratDetailPageState extends State<SuratDetailPage> {
-  Map<String, dynamic>? _suratDetail;
+  Map<String, dynamic>? _apiResponse;
   bool _isLoadingDetail = true;
   String? _errorMessage;
 
@@ -32,7 +35,7 @@ class _SuratDetailPageState extends State<SuratDetailPage> {
     try {
       final token = await getToken();
       final response = await http.get(
-        Uri.parse('$baseUrl/api/surat/${widget.surat.id}/details/user/'),
+        Uri.parse('$baseUrl/api/surat/${widget.surat.id}/details/user'),
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
@@ -42,7 +45,7 @@ class _SuratDetailPageState extends State<SuratDetailPage> {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         setState(() {
-          _suratDetail = data['detail'];
+          _apiResponse = data;
           _isLoadingDetail = false;
         });
       } else {
@@ -58,6 +61,10 @@ class _SuratDetailPageState extends State<SuratDetailPage> {
       });
     }
   }
+
+  Map<String, dynamic>? get _suratDetail => _apiResponse?['detail'];
+  String? get _alasan => _apiResponse?['alasan'];
+  String? get _filePdf => _apiResponse?['file_pdf'];
 
   String getSuratDisplayName(String jenisSurat) {
     switch (jenisSurat) {
@@ -98,6 +105,15 @@ class _SuratDetailPageState extends State<SuratDetailPage> {
     }
   }
 
+  Color _getJenisColor(String? jenis) {
+    if (jenis == null) return const Color(0xFF2E7D32);
+    final t = jenis.toLowerCase();
+    if (t.contains('usaha')) return const Color(0xFF1976D2);
+    if (t.contains('tidak_mampu')) return const Color(0xFFE65100);
+    if (t.contains('kematian')) return const Color(0xFF424242);
+    return const Color(0xFF2E7D32);
+  }
+
   Widget _buildSuratSpecificDetails() {
     if (_isLoadingDetail) {
       return const Center(
@@ -113,9 +129,9 @@ class _SuratDetailPageState extends State<SuratDetailPage> {
         padding: const EdgeInsets.all(20.0),
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
-          color: Colors.red.withOpacity(0.1),
+          color: Colors.red.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.red.withOpacity(0.3)),
+          border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
         ),
         child: Row(
           children: [
@@ -137,7 +153,7 @@ class _SuratDetailPageState extends State<SuratDetailPage> {
         padding: const EdgeInsets.all(20.0),
         margin: const EdgeInsets.only(bottom: 16),
         decoration: BoxDecoration(
-          color: Colors.grey.withOpacity(0.1),
+          color: Colors.grey.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
         ),
         child: const Row(
@@ -267,6 +283,151 @@ class _SuratDetailPageState extends State<SuratDetailPage> {
     );
   }
 
+  Widget _buildAlasanSection() {
+    if (_alasan == null || _alasan!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      children: [
+        _buildDetailCard(
+          icon: Icons.info_outline,
+          title: 'Alasan',
+          value: _alasan!,
+          valueColor: widget.surat.status == 'ditolak' 
+              ? const Color(0xFFF44336) 
+              : null,
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildPdfSection() {
+    if (_filePdf == null || _filePdf!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2E7D32).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.picture_as_pdf,
+                      color: Color(0xFF2E7D32),
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'File Surat',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Surat telah selesai diproses',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    // TODO: Implement PDF download/view functionality
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Fitur unduh PDF akan segera hadir'),
+                        backgroundColor: Color(0xFF2E7D32),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.download),
+                  label: const Text('Unduh Surat PDF'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2E7D32),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Future<void> _downloadAndOpenPdf(int suratId) async {
+    try {
+      final token = await getToken();
+      final url = '$baseUrl/api/surat/$suratId/download-pdf';
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Authorization': 'Bearer $token',
+        },
+      );
+      if (response.statusCode == 200) {
+        final bytes = response.bodyBytes;
+        final tempDir = await getTemporaryDirectory();
+        final filePath = '${tempDir.path}/surat_$suratId.pdf';
+        final file = await File(filePath).writeAsBytes(bytes);
+        await OpenFile.open(file.path);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal mengunduh file PDF.')), 
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Terjadi kesalahan: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -289,13 +450,13 @@ class _SuratDetailPageState extends State<SuratDetailPage> {
             // Header with gradient
             Container(
               width: double.infinity,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Color(0xFF2E7D32),
-                    Color(0xFF4CAF50),
+                    _getJenisColor(widget.surat.jenisSurat),
+                    _getJenisColor(widget.surat.jenisSurat).withValues(alpha: 0.7),
                   ],
                 ),
               ),
@@ -316,10 +477,10 @@ class _SuratDetailPageState extends State<SuratDetailPage> {
                           ),
                         ],
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.description,
                         size: 50,
-                        color: Color(0xFF2E7D32),
+                        color: _getJenisColor(widget.surat.jenisSurat),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -336,17 +497,17 @@ class _SuratDetailPageState extends State<SuratDetailPage> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: getStatusColor(widget.surat.status).withOpacity(0.2),
+                        color: _getJenisColor(widget.surat.jenisSurat).withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: getStatusColor(widget.surat.status),
+                          color: _getJenisColor(widget.surat.jenisSurat),
                           width: 1,
                         ),
                       ),
                       child: Text(
                         getStatusText(widget.surat.status),
                         style: TextStyle(
-                          color: getStatusColor(widget.surat.status),
+                          color: _getJenisColor(widget.surat.jenisSurat),
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
                         ),
@@ -366,7 +527,7 @@ class _SuratDetailPageState extends State<SuratDetailPage> {
                   // Surat ID
                   _buildDetailCard(
                     icon: Icons.numbers,
-                    title: 'ID Surat',
+                    title: 'Nomor Surat',
                     value: '#${widget.surat.id.toString().padLeft(6, '0')}',
                   ),
                   const SizedBox(height: 16),
@@ -396,16 +557,22 @@ class _SuratDetailPageState extends State<SuratDetailPage> {
                   ),
                   const SizedBox(height: 16),
 
+                  // Alasan (if available)
+                  _buildAlasanSection(),
+
                   // Surat Specific Details
                   _buildSuratSpecificDetails(),
                   const SizedBox(height: 16),
+
+                  // PDF File (if available and completed)
+                  if (widget.surat.status == 'selesai') _buildPdfSection(),
 
                   // Estimasi Selesai (if pending)
                   if (widget.surat.status == 'pending')
                     _buildDetailCard(
                       icon: Icons.schedule,
-                      title: 'Estimasi Selesai',
-                      value: '3-5 hari kerja',
+                      title: 'Menunggu Persetujuan Admin',
+                      value: 'harap bersabar, surat akan segera diverifikasi',
                       valueColor: const Color(0xFFFF9800),
                     ),
                   if (widget.surat.status == 'pending') const SizedBox(height: 16),
@@ -415,7 +582,7 @@ class _SuratDetailPageState extends State<SuratDetailPage> {
                     _buildDetailCard(
                       icon: Icons.note,
                       title: 'Catatan',
-                      value: 'Surat ditolak karena data tidak lengkap',
+                      value: _alasan ?? 'Tidak ada catatan',
                       valueColor: const Color(0xFFF44336),
                     ),
                   if (widget.surat.status == 'ditolak') const SizedBox(height: 16),
@@ -472,6 +639,21 @@ class _SuratDetailPageState extends State<SuratDetailPage> {
                         ),
                       ),
                     ),
+                  if (_filePdf != null && _filePdf!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12.0),
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.picture_as_pdf),
+                        label: const Text('Lihat/Download PDF'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () => _downloadAndOpenPdf(widget.surat.id),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -494,7 +676,7 @@ class _SuratDetailPageState extends State<SuratDetailPage> {
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -505,12 +687,12 @@ class _SuratDetailPageState extends State<SuratDetailPage> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF2E7D32).withOpacity(0.1),
+              color: _getJenisColor(widget.surat.jenisSurat).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
               icon,
-              color: const Color(0xFF2E7D32),
+              color: _getJenisColor(widget.surat.jenisSurat),
               size: 24,
             ),
           ),

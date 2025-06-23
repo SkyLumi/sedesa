@@ -1,5 +1,52 @@
 import 'package:flutter/material.dart';
 import 'nik_data_page.dart';
+import 'riwayat_page.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:project_akhir_sedesa/config.dart';
+import 'package:project_akhir_sedesa/service/jwt_service.dart';
+
+class PendingRequest {
+  final int id;
+  final String name;
+  final String nik;
+  final String type;
+  final String date;
+  final String status;
+
+  PendingRequest({
+    required this.id,
+    required this.name,
+    required this.nik,
+    required this.type,
+    required this.date,
+    required this.status,
+  });
+
+  factory PendingRequest.fromJson(Map<String, dynamic> json) {
+    return PendingRequest(
+      id: json['id'],
+      name: json['nama'] ?? '-',
+      nik: json['nik'] ?? '-',
+      type: _getSuratType(json['jenis_surat']),
+      date: json['created_at'] != null ? json['created_at'].toString().split('T')[0] : '-',
+      status: json['status'],
+    );
+  }
+
+  static String _getSuratType(String? jenis) {
+    switch (jenis) {
+      case 'usaha':
+        return 'Surat Keterangan Usaha';
+      case 'kematian':
+        return 'Surat Keterangan Kematian';
+      case 'tidak_mampu':
+        return 'Surat Keterangan Tidak Mampu';
+      default:
+        return jenis ?? '-';
+    }
+  }
+}
 
 class AdminHomePage extends StatefulWidget {
   const AdminHomePage({super.key});
@@ -10,37 +57,7 @@ class AdminHomePage extends StatefulWidget {
 
 class _AdminHomePageState extends State<AdminHomePage> {
   int _currentIndex = 0;
-
-  // Mock data untuk pending requests
-  final List<Map<String, dynamic>> pendingRequests = [
-    {
-      'id': 'REQ001',
-      'name': 'Ahmad Fauzi',
-      'nik': '3517081234567890',
-      'type': 'Surat Keterangan Tidak Mampu',
-      'date': '2025-06-15',
-      'status': 'pending',
-      'priority': 'high',
-    },
-    {
-      'id': 'REQ002',
-      'name': 'Siti Aminah',
-      'nik': '3517081234567891',
-      'type': 'Surat Keterangan Kematian',
-      'date': '2025-06-14',
-      'status': 'pending',
-      'priority': 'urgent',
-    },
-    {
-      'id': 'REQ003',
-      'name': 'Budi Santoso',
-      'nik': '3517081234567892',
-      'type': 'Surat Keterangan Usaha',
-      'date': '2025-06-13',
-      'status': 'pending',
-      'priority': 'normal',
-    },
-  ];
+  List<PendingRequest> pendingRequests = [];
 
   // Mock data untuk registered NIK
   final List<Map<String, dynamic>> registeredNIK = [
@@ -69,6 +86,34 @@ class _AdminHomePageState extends State<AdminHomePage> {
       'registeredDate': '2025-03-10',
     },
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPendingRequests();
+  }
+
+  Future<void> _fetchPendingRequests() async {
+    try {
+      final token = await getToken();
+      final response = await http.get(
+        Uri.parse('$baseUrl/api/surat/admin/all'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        final all = data.map((e) => PendingRequest.fromJson(e)).toList();
+        setState(() {
+          pendingRequests = all.where((e) => e.status == 'pending').toList();
+        });
+      }
+    } catch (e) {
+      // Optionally show error
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -335,7 +380,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withValues(alpha:0.2),
+              color: Colors.grey.withValues(alpha: 0.2),
               blurRadius: 10,
               offset: const Offset(0, -2),
             ),
@@ -343,7 +388,31 @@ class _AdminHomePageState extends State<AdminHomePage> {
         ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
-          onTap: (index) => setState(() => _currentIndex = index),
+          onTap: (index) {
+            if (index == _currentIndex) return;
+            setState(() => _currentIndex = index);
+            if (index == 0) {
+              // Dashboard: stay on this page
+            } else if (index == 1) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const RiwayatPage()),
+              );
+            } else if (index == 2) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (_) => const NIKDataPage()),
+              );
+            } else if (index == 3) {
+              // Placeholder for Maps
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Halaman Maps belum tersedia'),
+                  backgroundColor: Color(0xFF1565C0),
+                ),
+              );
+            }
+          },
           type: BottomNavigationBarType.fixed,
           backgroundColor: Colors.white,
           selectedItemColor: const Color(0xFF1565C0),
@@ -483,13 +552,7 @@ class _AdminHomePageState extends State<AdminHomePage> {
     );
   }
 
-  Widget _buildPendingRequestCard(Map<String, dynamic> request) {
-    Color priorityColor = request['priority'] == 'urgent' 
-        ? Colors.red 
-        : request['priority'] == 'high' 
-            ? Colors.orange 
-            : Colors.blue;
-
+  Widget _buildPendingRequestCard(PendingRequest request) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -506,17 +569,17 @@ class _AdminHomePageState extends State<AdminHomePage> {
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: CircleAvatar(
-          backgroundColor: priorityColor.withValues(alpha:0.1),
+          backgroundColor: Colors.blue.withValues(alpha: 0.1),
           child: Text(
-            request['name'][0],
-            style: TextStyle(
-              color: priorityColor,
+            request.name.isNotEmpty ? request.name[0] : '-',
+            style: const TextStyle(
+              color: Colors.blue,
               fontWeight: FontWeight.bold,
             ),
           ),
         ),
         title: Text(
-          request['name'],
+          request.name,
           style: const TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: 16,
@@ -525,31 +588,22 @@ class _AdminHomePageState extends State<AdminHomePage> {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(request['type']),
+            Text(request.type),
             const SizedBox(height: 4),
             Row(
               children: [
                 Icon(Icons.calendar_today, size: 12, color: Colors.grey[600]),
                 const SizedBox(width: 4),
                 Text(
-                  request['date'],
+                  request.date,
                   style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 ),
                 const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: priorityColor.withValues(alpha:0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    request['priority'].toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: priorityColor,
-                    ),
-                  ),
+                Icon(Icons.badge, size: 12, color: Colors.grey[600]),
+                const SizedBox(width: 4),
+                Text(
+                  request.nik,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 ),
               ],
             ),
@@ -628,19 +682,19 @@ class _AdminHomePageState extends State<AdminHomePage> {
     );
   }
 
-  void _approveRequest(Map<String, dynamic> request) {
+  void _approveRequest(PendingRequest request) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Permintaan ${request['name']} disetujui'),
+        content: Text('Permintaan ${request.name} disetujui'),
         backgroundColor: Colors.green,
       ),
     );
   }
 
-  void _rejectRequest(Map<String, dynamic> request) {
+  void _rejectRequest(PendingRequest request) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Permintaan ${request['name']} ditolak'),
+        content: Text('Permintaan ${request.name} ditolak'),
         backgroundColor: Colors.red,
       ),
     );
